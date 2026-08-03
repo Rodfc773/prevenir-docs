@@ -11,7 +11,12 @@
 </head>
 <body>
 <div id="swagger-ui"></div>
+
+<!-- Script principal do Swagger -->
 <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+<!-- NOVO: Script obrigatório para renderizar a barra superior com o dropdown -->
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" crossorigin></script>
+
 <script>
     window.onload = () => {
         window.ui = SwaggerUIBundle({
@@ -21,8 +26,11 @@
             ],
             dom_id: '#swagger-ui',
             deepLinking: true,
-            presets: [ SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset ],
-            layout: "BaseLayout",
+            presets: [
+                SwaggerUIBundle.presets.apis,
+                SwaggerUIStandalonePreset // Aqui usamos a função injetada pelo novo script
+            ],
+            layout: "StandaloneLayout", // Corrigido para mostrar o menu
         });
     };
 </script>
