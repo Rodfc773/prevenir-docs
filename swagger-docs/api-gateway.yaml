@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: API Gateway - E-commerce B2B (Combate a Incêndio)
+  description: Ponto único de entrada. Centraliza a autenticação (JWT) e roteia as requisições de forma segura.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000/v1
+    description: Servidor Local (Gateway)
+
+tags:
+  - name: Auth
+    description: Geração de tokens JWT.
+  - name: Customers
+    description: Roteado para o Register Service interno.
+  - name: Administration
+    description: Roteado para o Register Service interno.
+
+paths:
+  # ==========================================
+  # AUTH
+  # ==========================================
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Autentica usuário e retorna JWT
+      operationId: loginGateway
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Sucesso. Retorna o Token.
+
+  # ==========================================
+  # CUSTOMERS (Proxy Reverso)
+  # ==========================================
+  /customers:
+    post:
+      tags: [Customers]
+      summary: Cadastro inicial B2B (Público)
+      operationId: createCustomerGateway
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerSignupRequest'
+      responses:
+        '201':
+          description: Cliente criado.
+    get:
+      security: [{ bearerAuth: [] }]
+      tags: [Customers]
+      summary: Lista clientes (Paginado)
+      operationId: getCustomersGateway
+      responses:
+        '200':
+          description: Sucesso.
+
+  /customers/{id}:
+    get:
+      security: [{ bearerAuth: [] }]
+      tags: [Customers]
+      operationId: getCustomerByIdGateway
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Sucesso.
+    patch:
+      security: [{ bearerAuth: [] }]
+      tags: [Customers]
+      operationId: patchCustomerGateway
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '204':
+          description: Atualizado.
+    delete:
+      security: [{ bearerAuth: [] }]
+      tags: [Customers]
+      operationId: deleteCustomerGateway
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '204':
+          description: Removido.
+
+  /customers/{id}/addresses:
+    post:
+      security: [{ bearerAuth: [] }]
+      tags: [Customers]
+      operationId: createCustomerAddressGateway
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Address' }
+      responses:
+        '201':
+          description: Endereço criado.
+    get:
+      security: [{ bearerAuth: [] }]
+      tags: [Customers]
+      operationId: getCustomerAddressesGateway
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Sucesso.
+
+  /customers/{id}/addresses/{addressId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      tags: [Customers]
+      operationId: patchCustomerAddressGateway
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - $ref: '#/components/parameters/AddressIdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object } # Simplificado para o Gateway
+      responses:
+        '204':
+          description: Endereço atualizado.
+    delete:
+      security: [{ bearerAuth: [] }]
+      tags: [Customers]
+      operationId: deleteCustomerAddressGateway
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - $ref: '#/components/parameters/AddressIdPathParam'
+      responses:
+        '204':
+          description: Endereço removido.
+
+  # As rotas /admin seguem exatamente o mesmo espelhamento das rotas acima...
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdPathParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    AddressIdPathParam:
+      name: addressId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Address:
+      type: object
+      properties:
+        street: { type: string }
+        city: { type: string }
+        state: { type: string }
+        number: { type: string }
+    CustomerSignupRequest:
+      type: object
+      properties:
+        cnpj: { type: string }
+        companyName: { type: string }
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        address: { $ref: '#/components/schemas/Address' }

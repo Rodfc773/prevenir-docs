@@ -1,0 +1,48 @@
+@startuml
+title Register Flow
+skinparam actorStyle awesome
+actor client
+participant Gateway
+participant RegisterService
+participant PaymentService
+participant AuthService
+participant OrderService
+participant StorageService
+participant NFService
+participant Notification
+
+autonumber
+client -> Gateway: request for user creation
+Gateway -> AuthService: Send email and password for auth credentials registration.
+
+alt if Credentials creation failed
+
+Gateway <- AuthService: 4xx or 5xx error
+Gateway-> Gateway: handle error and create payload reason response
+Gateway -> client: HTTP failure response
+
+end
+Gateway <- AuthService: Send authUserId
+Gateway -> RegisterService: Send client info for registration.
+
+
+alt if failed to register client
+RegisterService -> Gateway: HTTP Error response
+Gateway -> AuthService: Request to delete created authUserId
+Gateway -> client: HTTP error response
+
+end
+Gateway <- RegisterService: Send the userId back to gateway.
+Gateway -> PaymentService: Send payment info as payload.
+
+alt if register payment failure
+PaymentService -> Gateway: returns error Reason
+Gateway -> Gateway: create the object response whithout paymentMethodId
+Gateway -> client: returns object response with field paymentMethodId empty and HTTP code 201.
+end
+
+PaymentService -> Gateway : returns paymentMethodIad
+Gateway -> Gateway: prepare the response payload.
+Gateway -> client: HTTP 201 with userId.
+
+@enduml

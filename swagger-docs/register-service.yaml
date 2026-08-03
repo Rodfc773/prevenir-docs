@@ -1,0 +1,610 @@
+openapi: 3.0.3
+info:
+  title: Register Service API
+  description: API B2B responsável pelo cadastro e consulta de dados de clientes e administradores.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Servidor de Desenvolvimento
+tags:
+  - name: Customers
+    description: Rotas de uso do cliente final (Checkout, Perfil).
+  - name: Administration
+    description: Rotas exclusivas para contas administrativas.
+
+paths:
+  # ==========================================
+  # ROTAS DE CLIENTES (CUSTOMERS)
+  # ==========================================
+  /customers:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Customers
+      summary: Busca clientes paginados
+      description: Retorna a lista paginada de clientes para princípios administrativos.
+      operationId: getAllCustomers
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Lista de clientes retornada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCustomerResponse'
+        '401':
+          description: Não Autorizado.
+
+    post:
+      tags:
+        - Customers
+      summary: Cadastra um novo cliente
+      operationId: createCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerCreateRequest'
+      responses:
+        '201':
+          description: Cliente cadastrado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedIdResponse'
+        '409':
+          description: Conflito - CNPJ já cadastrado.
+
+  /customers/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Customers
+      summary: Busca dados de faturamento do cliente
+      operationId: getCustomerById
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '401':
+          description: Não Autorizado.
+        '404':
+          description: Cliente não encontrado.
+
+    patch:
+      security:
+        - bearerAuth: []
+      tags:
+        - Customers
+      summary: Atualiza dados parciais do cliente
+      operationId: patchCustomerInfo
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerUpdateRequest'
+      responses:
+        '204':
+          description: Atualizado com sucesso (Sem conteúdo no retorno).
+        '400':
+          description: Payload inválido.
+
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Customers
+      summary: Remove um cliente do sistema
+      operationId: deleteCustomer
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '204':
+          description: Removido com sucesso.
+
+  /customers/{id}/addresses:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Customers
+      summary: Busca todos os endereços do cliente
+      operationId: getCustomerAddresses
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Endereços encontrados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Customers
+      summary: Cadastra novo endereço para o cliente
+      operationId: createCustomerAddress
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '201':
+          description: Endereço cadastrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedIdResponse'
+  /customers/{id}/addresses/{addressId}:
+    patch:
+      security:
+        - bearerAuth: [ ]
+      tags:
+        - Customers
+      summary: Atualiza um endereço específico do cliente
+      operationId: patchCustomerAddress
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - $ref: '#/components/parameters/AddressIdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressUpdateRequest'
+      responses:
+        '204':
+          description: Endereço atualizado com sucesso.
+        '400':
+          description: Payload inválido.
+        '401':
+          description: Não Autorizado.
+        '404':
+          description: Cliente ou Endereço não encontrado.
+
+    delete:
+      security:
+        - bearerAuth: [ ]
+      tags:
+        - Customers
+      summary: Remove um endereço do cliente
+      operationId: deleteCustomerAddress
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - $ref: '#/components/parameters/AddressIdPathParam'
+      responses:
+        '204':
+          description: Endereço removido com sucesso.
+        '401':
+          description: Não Autorizado.
+        '404':
+          description: Cliente ou Endereço não encontrado.
+
+  # ==========================================
+  # ROTAS DE ADMINISTRAÇÃO (ADMIN)
+  # ==========================================
+  /admin:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Administration
+      summary: Recupera lista paginada de admins
+      operationId: getAllAdmins
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminResponse'
+
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Administration
+      summary: Cadastra um novo administrador
+      operationId: createAdmin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCreatePayloadRequest'
+      responses:
+        '201':
+          description: Administrador cadastrado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedIdResponse'
+
+  /admin/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Administration
+      summary: Recupera informações de um administrador
+      operationId: getAdminById
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPayloadResponse'
+        '404':
+          description: Admin não encontrado.
+
+    patch:
+      security:
+        - bearerAuth: []
+      tags:
+        - Administration
+      summary: Atualiza dados de um administrador
+      operationId: patchAdminById
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdatePayloadRequest'
+      responses:
+        '204':
+          description: Atualizado com sucesso.
+
+  /admin/{id}/addresses:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Administration
+      summary: Busca todos os endereços do administrador
+      operationId: getAdminAddresses
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Endereços encontrados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Administration
+      summary: Cadastra novo endereço para o administrador
+      operationId: createAdminAddress
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '201':
+          description: Endereço cadastrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedIdResponse'
+
+  /admin/{id}/addresses/{addressId}:
+    patch:
+      security:
+        - bearerAuth: [ ]
+      tags:
+        - Administration
+      summary: Atualiza um endereço específico do administrador
+      operationId: patchAdminAddress
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - $ref: '#/components/parameters/AddressIdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressUpdateRequest'
+      responses:
+        '204':
+          description: Endereço atualizado com sucesso.
+        '400':
+          description: Payload inválido.
+        '401':
+          description: Não Autorizado.
+        '404':
+          description: Admin ou Endereço não encontrado.
+
+    delete:
+      security:
+        - bearerAuth: [ ]
+      tags:
+        - Administration
+      summary: Remove um endereço do administrador
+      operationId: deleteAdminAddress
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - $ref: '#/components/parameters/AddressIdPathParam'
+      responses:
+        '204':
+          description: Endereço removido com sucesso.
+        '401':
+          description: Não Autorizado.
+        '404':
+          description: Admin ou Endereço não encontrado.
+
+# ==========================================
+# COMPONENTES (Reutilização máxima)
+# ==========================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdPathParam:
+      name: id
+      in: path
+      required: true
+      description: ID único (UUID)
+      schema:
+        type: string
+        format: uuid
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: Número da página atual
+      schema:
+        type: integer
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      description: Quantidade de itens por página
+      schema:
+        type: integer
+        default: 20
+    AddressIdPathParam:
+      name: addressId
+      in: path
+      required: true
+      description: ID único do endereço específico (UUID)
+      schema:
+        type: string
+        format: uuid
+
+
+  schemas:
+    # --- SCHEMAS GENÉRICOS ---
+    CreatedIdResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    Address:
+      type: object
+      required:
+        - street
+        - city
+        - state
+        - number
+      properties:
+        street:
+          type: string
+          example: "Rua Paspalho de Mendonça"
+        city:
+          type: string
+          example: "Maceió"
+        state:
+          type: string
+          example: "AL"
+        number:
+          type: string
+          example: "65"
+        additionalInfo:
+          type: string
+          example: "Edifício fulano de tal, apto 503"
+
+    # --- SCHEMAS DE CUSTOMER ---
+    CustomerResponse:
+      type: object
+      required:
+        - id
+        - cnpj
+        - companyName
+      properties:
+        id:
+          type: string
+          format: uuid
+        cnpj:
+          type: string
+          example: "12.345.678/0001-90"
+        companyName:
+          type: string
+          example: "Prevenção Total Incêndios LTDA"
+        billingEmail:
+          type: string
+          format: email
+          example: "financeiro@prevencaototal.com.br"
+
+    CustomerCreateRequest:
+      type: object
+      required:
+        - cnpj
+        - companyName
+        - authUserId
+        - address
+      properties:
+        cnpj:
+          type: string
+        companyName:
+          type: string
+        authUserId:
+          type: string
+          format: uuid
+        address:
+          $ref: '#/components/schemas/Address'
+
+    CustomerUpdateRequest:
+      type: object
+      properties:
+        cnpj:
+          type: string
+        companyName:
+          type: string
+
+    PaginatedCustomerResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerResponse'
+        totalItems:
+          type: integer
+          example: 150
+        totalPages:
+          type: integer
+          example: 8
+        currentPage:
+          type: integer
+          example: 1
+
+    # --- SCHEMAS DE ADMIN ---
+    AdminPayloadResponse:
+      type: object
+      required:
+        - id
+        - name
+        - employeeId
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          example: "Fulano Tau"
+        employeeId:
+          type: string
+          example: "EMP-001"
+        role:
+          type: string
+          example: "gerente"
+
+    AdminCreatePayloadRequest:
+      type: object
+      required:
+        - name
+        - nationalNumberId
+        - authUserId
+        - role
+        - address
+      properties:
+        name:
+          type: string
+        nationalNumberId:
+          type: string
+          example: "111.111.111-11"
+        authUserId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          example: "gerente"
+        address:
+          $ref: '#/components/schemas/Address'
+
+    AdminUpdatePayloadRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+
+    PaginatedAdminResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminPayloadResponse'
+        totalItems:
+          type: integer
+          example: 12
+        totalPages:
+          type: integer
+          example: 1
+        currentPage:
+          type: integer
+          example: 1
+    AddressUpdateRequest:
+      type: object
+      properties:
+        street:
+          type: string
+          example: "Rua Nova Atualizada"
+        city:
+          type: string
+          example: "Maceió"
+        state:
+          type: string
+          example: "AL"
+        number:
+          type: string
+          example: "123B"
+        additionalInfo:
+          type: string
+          example: "Complemento atualizado"
