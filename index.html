@@ -12,9 +12,7 @@
 <body>
 <div id="swagger-ui"></div>
 
-<!-- Script principal do Swagger -->
 <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
-<!-- NOVO: Script obrigatório para renderizar a barra superior com o dropdown -->
 <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" crossorigin></script>
 
 <script>
@@ -22,15 +20,19 @@
         window.ui = SwaggerUIBundle({
             urls: [
                 { url: "./swagger-docs/api-gateway.yaml", name: "Serviço de Autenticação" },
-                { url: "./swagger-docs/register-service.yaml", name: "Serviço de Pedidos" },
+                { url: "./swagger-docs/register-service.yaml", name: "Serviço de cadastro de clientes" }
             ],
             dom_id: '#swagger-ui',
             deepLinking: true,
             presets: [
                 SwaggerUIBundle.presets.apis,
-                SwaggerUIStandalonePreset // Aqui usamos a função injetada pelo novo script
+                SwaggerUIStandalonePreset
             ],
-            layout: "StandaloneLayout", // Corrigido para mostrar o menu
+            // A CORREÇÃO ESTÁ AQUI: O Topbar precisa deste plugin para funcionar
+            plugins: [
+                SwaggerUIBundle.plugins.DownloadUrl
+            ],
+            layout: "StandaloneLayout",
         });
     };
 </script>
