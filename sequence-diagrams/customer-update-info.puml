@@ -1,0 +1,56 @@
+@startuml
+title Update Info Flow
+skinparam actorStyle awesome
+
+actor Cliente as client
+participant Gateway
+participant RegisterService
+participant PaymentService
+participant AuthService
+participant OrderService
+participant StorageService
+participant NFService
+participant Notification
+
+autonumber
+
+client -> Gateway: PATCH /info (payload)
+activate Gateway
+
+Gateway -> Gateway: check JWT token and retrieve data
+
+== Customer Update info ==
+opt Payload has "user/address"
+    Gateway -> RegisterService: PATCH /register (user_data)
+    activate RegisterService
+    RegisterService -> RegisterService: check payload
+
+    ' O break interrompe o fluxo aqui se houver erro
+    break HTTP 4xx / 5xx
+        RegisterService --> Gateway: HTTP ERROR Response
+        Gateway --> client: HTTP ERROR Response
+    end
+
+    RegisterService --> Gateway: HTTP 204 No Content
+    deactivate RegisterService
+end
+
+== Payment Update Info ==
+opt Payload has section "payment"
+    Gateway -> PaymentService: PATCH /payment (payment_data)
+    activate PaymentService
+    PaymentService -> PaymentService: Validar informações de pagamento
+
+    ' O mesmo padrão de erro reaproveitado
+    break HTTP 4xx / 5xx
+        PaymentService --> Gateway: HTTP ERROR Response
+        Gateway --> client: HTTP ERROR Response
+    end
+
+    PaymentService --> Gateway: HTTP 204 No Content
+    deactivate PaymentService
+end
+
+Gateway --> client: HTTP 204 No Content
+deactivate Gateway
+@enduml

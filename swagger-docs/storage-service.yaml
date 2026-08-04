@@ -1,0 +1,182 @@
+openapi: 3.0.3
+info:
+  title: Storage Service API (Inventário e Catálogo)
+  description: API responsável pela gestão de stock, cálculo do ATP (Available To Promise) e lógica de Soft Allocation (Reservas Temporárias) utilizando CQRS.
+  version: 1.0.0
+servers:
+  - url: http://storage-service:8080/api/v1
+    description: Servidor Interno (Rede Privada)
+
+tags:
+  - name: Inventory (Estoque)
+    description: Rotas de leitura rápida (Redis) e gestão de reservas temporárias.
+
+paths:
+  # ==========================================
+  # CONSULTA ULTRARRÁPIDA (VITRINE / CQRS)
+  # ==========================================
+  /inventory/{productId}:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Inventory (Estoque)
+      summary: Consulta o Stock Disponível (ATP)
+      description: Leitura ultrarrápida diretamente do Redis para exibir a disponibilidade na vitrine, latência próxima a zero.
+      operationId: getATP
+      parameters:
+        - $ref: '#/components/parameters/ProductIdPathParam'
+      responses:
+        '200':
+          description: Sucesso. Retorna a quantidade exata disponível para promessa (ATP).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ATPResponse'
+        '404':
+          description: Produto não encontrado.
+
+  # ==========================================
+  # RESERVA TEMPORÁRIA (SOFT ALLOCATION)
+  # ==========================================
+  /inventory/reserve:
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Inventory (Estoque)
+      summary: Cria uma Reserva Temporária (Checkout)
+      description: |
+        Chamada síncrona feita pelo Order Service antes de iniciar a Saga. 
+        Se o método for CREDIT_CARD, cria um TTL de 15-20 min no Redis. 
+        Se for PIX/BOLETO, cria uma reserva longa (24h-48h) no PostgreSQL.
+      operationId: reserveInventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveRequest'
+      responses:
+        '204':
+          description: Reserva garantida com sucesso. O fluxo de checkout pode continuar.
+        '400':
+          description: Payload inválido.
+        '409':
+          description: Conflito (Overselling evitado). Stock insuficiente para atender a reserva.
+
+  # ==========================================
+  # EFETIVAÇÃO E COMPENSAÇÃO (SAGA)
+  # ==========================================
+  /inventory/commit:
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Inventory (Estoque)
+      summary: Efetiva a reserva (Pagamento Confirmado)
+      description: Abate o stock de forma definitiva no banco principal e limpa as reservas temporárias.
+      operationId: commitInventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitOrRollbackRequest'
+      responses:
+        '204':
+          description: Stock abatido de forma permanente.
+
+  /inventory/reserve/{orderId}:
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Inventory (Estoque)
+      summary: Cancela a reserva (Compensação/Rollback)
+      description: Rota chamada caso o pagamento falhe. Liberta a reserva no Redis/Postgres e devolve o item para o ATP.
+      operationId: rollbackInventory
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Reserva desfeita com sucesso.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Token interno repassado pelo Gateway ou gerado para comunicação Service-to-Service."
+
+  parameters:
+    ProductIdPathParam:
+      name: productId
+      in: path
+      required: true
+      description: ID único do produto
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    ATPResponse:
+      type: object
+      required:
+        - productId
+        - availableQuantity
+      properties:
+        productId:
+          type: string
+          format: uuid
+        availableQuantity:
+          type: integer
+          description: Quantidade calculada (Estoque Total - Reservas Banco - Reservas Redis)
+          example: 42
+
+    ReserveRequest:
+      type: object
+      required:
+        - orderId
+        - items
+        - paymentMethod
+      properties:
+        orderId:
+          type: string
+          format: uuid
+          description: ID do Pedido gerado no Order Service
+        paymentMethod:
+          type: string
+          enum: [CREDIT_CARD, PIX, BOLETO]
+          description: Define a estratégia de armazenamento da reserva (Redis vs Postgres)
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - productId
+              - quantity
+            properties:
+              productId:
+                type: string
+                format: uuid
+              quantity:
+                type: integer
+                minimum: 1
+                example: 5
+
+    CommitOrRollbackRequest:
+      type: object
+      required:
+        - orderId
+      properties:
+        orderId:
+          type: string
+          format: uuid
