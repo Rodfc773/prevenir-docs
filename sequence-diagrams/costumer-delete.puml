@@ -1,0 +1,54 @@
+@startuml
+title Delete Account Flow (Event-Driven)
+skinparam actorStyle awesome
+
+actor Client as client
+participant "API Gateway" as Gateway
+participant "Register Service" as RegisterService
+participant "Message Broker\n(e.g., Kafka/RabbitMQ)" as Broker
+participant "Payment Service" as PaymentService
+participant "Auth Service" as AuthService
+
+autonumber
+
+client -> Gateway: DELETE /account
+activate Gateway
+
+Gateway -> Gateway: Validate JWT and extract userId
+Gateway -> RegisterService: DELETE /costumers/{userId}
+activate RegisterService
+
+' 1. Initial validation with early return
+RegisterService -> RegisterService: Fetch user by ID
+break If user is not found
+    ' Safety net: broadcast cleanup just in case of ghost records in other databases
+    RegisterService ->> Broker: Publish event:\nCleanupUserEvent(userId)
+    RegisterService --> Gateway: HTTP 404 Not Found
+    Gateway --> client: HTTP 404 Not Found
+end
+
+' 2. Async Deletion Process (Success path)
+RegisterService -> RegisterService: Inactivate user (Soft Delete)
+
+' The ->> arrow indicates an ASYNCHRONOUS message (fire-and-forget)
+RegisterService ->> Broker: Publish event:\nUserDeletedEvent(userId)
+
+RegisterService --> Gateway: HTTP 204 No Content
+deactivate RegisterService
+
+Gateway --> client: HTTP 204 No Content
+deactivate Gateway
+
+' 3. Parallel and independent background processing
+== Background Deletion ==
+Broker ->> PaymentService: Consume UserDeletedEvent
+activate PaymentService
+PaymentService -> PaymentService: Delete payment methods\nand history (Idempotent)
+deactivate PaymentService
+
+Broker ->> AuthService: Consume UserDeletedEvent
+activate AuthService
+AuthService -> AuthService: Revoke tokens and\ndelete credentials (Idempotent)
+deactivate AuthService
+
+@enduml
